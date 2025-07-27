@@ -4,6 +4,8 @@ import { HiAnimeError } from "../hianime/error.js";
 // import { getSources } from "./megacloud.getsrcs.js";
 import CryptoJS from "crypto-js";
 import * as cheerio from "cheerio";
+import { getMegaCloudClientKey, decryptSrc2 } from '../utils/index.js';
+import { client } from "../config/client.js";
 
 // https://megacloud.tv/embed-2/e-1/dBqCr5BcOhnD?k=1
 
@@ -360,8 +362,7 @@ class MegaCloud {
             {
                 headers: {
                     Host: "megaplay.buzz",
-                    "User-Agent":
-                        "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
                     Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                     "Accept-Language": "en-US,en;q=0.5",
                     DNT: "1",
@@ -427,6 +428,81 @@ class MegaCloud {
 
         return extractedData;
     }
+
+    async extract5(embedIframeURL: URL): Promise<ExtractedData> {
+        try {
+            // this key is extracted the same way as extract3's key
+            // the key.txt is nolonger updating and is pulling from the old endpoint
+            const megacloudKey = "qG2bX1DaU4iVlbZVB291UyUwwmp0eIQG6VFg2VmE9S2KznZieE";
+            const extractedData: ExtractedData = {
+                tracks: [],
+                intro: {
+                    start: 0,
+                    end: 0,
+                },
+                outro: {
+                    start: 0,
+                    end: 0,
+                },
+                sources: [],
+            };
+
+            const match = /\/([^\/\?]+)\?/.exec(embedIframeURL.href);
+
+            const sourceId = match?.[1];
+            if (!sourceId)
+                throw new Error("Unable to extract sourceId from embed URL");
+
+            // added gathering the client key
+            const clientKey = await getMegaCloudClientKey(sourceId);
+            if (!clientKey)
+                throw new Error("Unable to extract client key from iframe");
+
+            // endpoint changed
+            const megacloudUrl =  `https://megacloud.blog/embed-2/v3/e-1/getSources?id=${sourceId}&_k=${clientKey}`
+            const { data: rawSourceData } = await axios.get(megacloudUrl);
+
+            const encrypted = rawSourceData?.sources;
+            if (!encrypted)
+                throw new Error("Encrypted source missing in response");
+            const decrypted = decryptSrc2(encrypted, clientKey, megacloudKey)
+            let decryptedSources;
+            try {
+                decryptedSources = JSON.parse(decrypted);
+            } catch (e) {
+                throw new Error("Decrypted data is not valid JSON");
+            }
+            
+            let url = `https://megacloud.blog/embed-2/v3/e-1/getSources?id=${sourceId}&_k=${clientKey}`
+            const req = await fetch(url, {headers: {"Referer": "https://hianime.to/"}});
+            let resp = await req.json();
+            extractedData.tracks = resp.tracks;
+            extractedData.intro = resp.intro;
+            extractedData.outro = resp.outro;
+            extractedData.intro = rawSourceData.intro
+                ? rawSourceData.intro
+                : extractedData.intro;
+            extractedData.outro = rawSourceData.outro
+                ? rawSourceData.outro
+                : extractedData.outro;
+
+            extractedData.tracks =
+                rawSourceData.tracks?.map((track: any) => ({
+                    url: track.file,
+                    lang: track.label ? track.label : track.kind,
+                })) || [];
+            extractedData.sources = decryptedSources.map((s: any) => ({
+                url: s.file,
+                isM3U8: s.type === "hls",
+                type: s.type,
+            }));
+
+            return extractedData;
+        } catch (err){
+            throw err;
+        }
+    }
+
 }
 
 export default MegaCloud;
