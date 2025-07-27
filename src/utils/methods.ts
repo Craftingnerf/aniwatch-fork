@@ -9,6 +9,7 @@ import { SEARCH_PAGE_FILTERS } from "./constants.js";
 import type { CheerioAPI, SelectorType } from "cheerio";
 import type { FilterKeys } from "../hianime/types/animeSearch.js";
 import { client } from "../config/client.js";
+import { error } from "console";
 
 export const extractAnimes = (
     $: CheerioAPI,
@@ -329,59 +330,61 @@ export async function getMegaCloudClientKey(xrax : string): Promise<string | nul
             if (pass !== null) {
                 break;
             }
-            console.log(`Pass ${count++} failed`);
+            // console.log(`Pass ${count++} failed`);
         }
         if (pass === null) {
-            return null;
+            throw new Error("Failed extracting client key segment");
         }
-        console.log(pass[0]);
+        // console.log(pass[0]);
         let clientKey = "";
         if (count === 2) {
             // not a typescript dev (idk syntax)
             // probably a better way to do this but this should work
             // we need to test lk_db
             let x = pass[0].match(lk_db_regex[0])
-            if (x === null) return null;
+            if (x === null) throw new Error("Failed building client key (xyz)");
             let p1 = x[0].match(key)
-            if (p1 === null) return null; 
+            if (p1 === null) throw new Error("Failed building client key (xyz)");
 
             let y = pass[0].match(lk_db_regex[0])
-            if (y === null) return null;
+            if (y === null) throw new Error("Failed building client key (xyz)");
             let p2 = y[0].match(key)
-            if (p2 === null) return null; 
+            if (p2 === null) throw new Error("Failed building client key (xyz)");
             
             let z = pass[0].match(lk_db_regex[0])
-            if (z === null) return null;
+            if (z === null) throw new Error("Failed building client key (xyz)");
             let p3 = z[0].match(key)
-            if (p3 === null) return null; 
+            if (p3 === null) throw new Error("Failed building client key (xyz)");
             
             clientKey = `${p1[0].replaceAll("\"","")}${p2[0].replaceAll("\"","")}${p3[0].replaceAll("\"","")}`;
             
         } else if (count === 1) {
             // comment ones dont have "'s and I forgot about that when making the regex catchall
             var keytest =  pass[0].match(/:[a-zA-Z0-9]+ /)
-            if (keytest === null) return null;
+            if (keytest === null) throw new Error("Failed extracting client key (nonce)");
             clientKey = keytest[0].replaceAll(":","").replaceAll(" ","");
         } else {
             var keytest =  pass[0].match(key)
-            if (keytest === null) return null;
+            if (keytest === null) throw new Error("Failed extracting client key");
             clientKey = keytest[0].replaceAll("\"","");
         }
         // console.log("Is THIS your key?:", clientKey);
 
         return clientKey
     } catch (err) {
-        console.log("An error has occured!");
-        console.log(text);
-        console.log(err);
-        return null;
+        // console.log("An error has occured!");
+        // console.log(text);
+        // console.log(err);
+        // return null;
+        throw err;
     }
 }
 
 // extract helper functions
 // I extracted them and then rewrote them (hence the 2)
 // this should work 99% of the time
-
+// sometimes the data just doesnt work I dont know why
+// some edgecase I'd assume that doesnt catch it
 export function decryptSrc2(src: string, clientKey: string, megacloudKey : string): string { 
     var layers = 3;
     var genKey = keygen2(megacloudKey, clientKey);
@@ -430,7 +433,7 @@ export function decryptSrc2(src: string, clientKey: string, megacloudKey : strin
     for (var i = layers; i > 0; i--) {
         reverseLayer(i);
     }
-    console.log(decSrc);
+    // console.log(decSrc);
     var dataLen = parseInt(decSrc.substring(0, 4), 10);
     return decSrc.substring(4, 4+dataLen);
 }
