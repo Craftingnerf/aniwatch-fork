@@ -438,25 +438,26 @@ export function decryptSrc2(src: string, clientKey: string, megacloudKey : strin
     return decSrc.substring(4, 4+dataLen);
 }
 
-
-
 function keygen2(megacloudKey: string, clientKey: string): string {
     var tempKey = megacloudKey + clientKey;
     // numeric hash
     var hashVal = 0n;
+    var keygenVal = 31n; // this value changed from 47
     for (var i = 0; i < tempKey.length; i++) {
-        hashVal = BigInt(tempKey.charCodeAt(i)) + hashVal * 47n + (hashVal << 7n) - hashVal;
+        hashVal = BigInt(tempKey.charCodeAt(i)) + hashVal * keygenVal + (hashVal << 7n) - hashVal;
     }
     // get the absolute value of the hash
     hashVal = hashVal < 0n ? -hashVal : hashVal;
     var lHash = Number(hashVal % 0x7FFFFFFFFFFFFFFFn); // limit the hash to 64 bits
     // apply XOR
+    var keygenXORVal = 247 // changed from 179
     tempKey = tempKey.split("").map((c) => { 
-        return String.fromCharCode(c.charCodeAt(0) ^ 179) 
+        return String.fromCharCode(c.charCodeAt(0) ^ keygenXORVal) 
     }).join("");
 
     // circular shift
-    var pivot = lHash % tempKey.length + 7;
+    var keygenShiftVal = 5 // changed from 7
+    var pivot = lHash % tempKey.length + keygenShiftVal;
     tempKey = tempKey.slice(pivot) + tempKey.slice(0, pivot);
     // leaf in values
     var leafStr = clientKey.split("").reverse().join("");
@@ -509,7 +510,7 @@ function columnarCipher2(src: string, ikey: string): string {
     });
     var srcIndex = 0;
     sortedMap.forEach(({"idx": index})=> {
-        for (var i = 0; i < 3; i++) {
+        for (var i = 0; i < rowCount; i++) {
             cipherArry[i][index] = src[srcIndex++];
         }
     });
