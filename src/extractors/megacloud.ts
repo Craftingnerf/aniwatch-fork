@@ -434,7 +434,7 @@ class MegaCloud {
             // this key is extracted the same way as extract3's key
             // the key.txt is nolonger updating and is pulling from the old endpoint
             // its updating again -_-
-            const megacloudKey = "qG2bX1DaU4iVlbZVB291UyUwwmp0eIQG6VFg2VmE9S2KznZieE";
+            const megacloudKey = "nTAygRRNLS3wo82OtMyfPrWgD9K2UIvcwlj";
             const extractedData: ExtractedData = {
                 tracks: [],
                 intro: {
@@ -466,9 +466,10 @@ class MegaCloud {
             const encrypted = rawSourceData?.sources;
             if (!encrypted)
                 throw new Error("Encrypted source missing in response");
+            console.log(clientKey, megacloudKey, encrypted);
             const decrypted = decryptSrc2(encrypted, clientKey, megacloudKey)
             let decryptedSources;
-            console.log(decrypted);
+            // console.log(decrypted);
             try {
                 decryptedSources = JSON.parse(decrypted);
             } catch (e) {
